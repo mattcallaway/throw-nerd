@@ -1,0 +1,64 @@
+name: darts_app
+description: A fully functional darts scoring app.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.2.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # State Management
+  flutter_riverpod: ^2.4.9
+  riverpod_annotation: ^2.3.3
+
+  # Database
+  drift: ^2.14.1
+  sqlite3_flutter_libs: ^0.5.18
+  path_provider: ^2.1.2
+  path: ^1.8.3
+
+  # Data Classes
+  freezed_annotation: ^2.4.1
+  json_annotation: ^4.8.1
+
+  # UI
+  google_fonts: ^6.1.0
+  cupertino_icons: ^1.0.6
+  fl_chart: ^0.66.0
+
+  # Utils
+  intl: any
+  uuid: ^4.2.2
+  
+  # Backup
+  file_picker: ^8.0.0
+  archive: ^3.4.10
+  share_plus: ^9.0.0 
+  firebase_core: ^3.4.0
+  firebase_auth: ^5.2.0
+  cloud_firestore: ^5.4.0
+  firebase_storage: ^12.2.0
+  google_sign_in: ^6.2.1
+  googleapis: ^13.1.0
+  flutter_secure_storage: ^9.0.0
+  http: ^1.2.0
+  url_launcher: ^6.3.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+  build_runner: ^2.4.8
+  riverpod_generator: ^2.3.9
+  drift_dev: ^2.14.1
+  freezed: ^2.4.6
+  json_serializable: ^6.7.1
+  mockito: ^5.4.4
+
+flutter:
+  uses-material-design: true

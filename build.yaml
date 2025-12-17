@@ -1,0 +1,13 @@
+targets:
+  $default:
+    builders:
+      drift_dev:
+        generate_for:
+          include:
+            - lib/data/local/**
+            - lib/database.dart
+          exclude:
+            - lib/domain/**
+            - lib/features/**
+            - lib/services/**
+            - test/**
