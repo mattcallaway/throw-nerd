@@ -221,4 +221,18 @@ class GoogleDriveLeagueProvider implements LeagueSyncProvider {
      final jsonStr = jsonEncode(content);
      await uploadTextFile('$parentId/$name', jsonStr);
   }
+  Future<LeagueRemoteRef> resolveLeagueRootFromInvite(Map<String, String> remoteRoot) async {
+     // Expected: 'driveFolderId'
+     final folderId = remoteRoot['driveFolderId'];
+     if (folderId == null) throw Exception('Invalid Invite for Google Drive');
+     
+     // Verify access
+     try {
+       await _api.files.get(folderId, $fields: 'id, name, trashed');
+     } catch(e) {
+       throw Exception('Cannot access Drive folder. Ensure it is shared with you.');
+     }
+     
+     return LeagueRemoteRef(remoteRoot: folderId, providerId: 'gdrive');
+  }
 }

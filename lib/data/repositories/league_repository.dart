@@ -77,6 +77,44 @@ class LeagueRepository {
     }
   }
 
+  Future<void> joinLeagueFromPayload(dynamic payload) async {
+     // 1. Resolve Provider
+     final providerId = payload.provider;
+     final provider = _providers[providerId];
+     if (provider == null) throw Exception('Provider $providerId not supported');
+     
+     // 2. Ensure Auth
+     await provider.ensureAuth();
+     
+     // 3. Resolve Remote Root using specific provider logic
+     LeagueRemoteRef? ref;
+     try {
+       // We know GDrive and Dropbox impls have it.
+       ref = await (provider as dynamic).resolveLeagueRootFromInvite(payload.remoteRoot);
+     } catch (e) {
+       throw Exception('Resolution failed: $e');
+     }
+     
+     if (ref == null) throw Exception('Could not resolve invite');
+     
+     // 4. Verify/Join
+     final result = await provider.joinLeague(inviteCodeOrLink: ref.remoteRoot);
+     
+     // 5. Store Local
+    final exists = await (_db.select(_db.leagues)..where((tbl) => tbl.id.equals(result.ref.remoteRoot))).getSingleOrNull();
+    if (exists == null) {
+      await _db.into(_db.leagues).insert(LeaguesCompanion(
+         id: Value(result.ref.remoteRoot),
+         name: Value(result.name),
+         providerType: Value(providerId),
+         remoteRoot: Value(result.ref.remoteRoot),
+         inviteCode: Value(ref.inviteCode ?? payload.leagueId),
+         createdAt: Value(DateTime.now()), 
+         lastSyncAt: Value(null),
+      ));
+    }
+  }
+
   Stream<List<domain.League>> watchMyLeagues() {
     // Read from LOCAL database
     return (_db.select(_db.leagues)..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))

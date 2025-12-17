@@ -7,6 +7,7 @@ import '../widgets/glass_card.dart';
 import 'league_dashboard_screen.dart';
 import '../providers/di_providers.dart';
 import '../../features/leagues/ui/league_help_screen.dart';
+import '../../services/league/invite_codec.dart';
 
 class LeaguesListScreen extends ConsumerWidget {
   const LeaguesListScreen({super.key});
@@ -158,7 +159,8 @@ class LeaguesListScreen extends ConsumerWidget {
   
   void _showJoinLeagueDialog(BuildContext context, WidgetRef ref) {
     final codeCtrl = TextEditingController();
-    String selectedProvider = 'gdrive';
+    // No manual provider selection needed initially if we parse code.
+    // But we keep it as fallback or confirmation if code fails.
     
     showDialog(context: context, builder: (ctx) => StatefulBuilder(
       builder: (context, setState) {
@@ -167,42 +169,64 @@ class LeaguesListScreen extends ConsumerWidget {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              const Text('Paste the Invite Link or Join Code sent by the league owner.'),
+              const SizedBox(height: 16),
               TextField(
                 controller: codeCtrl,
-                decoration: const InputDecoration(labelText: 'Invite Code / Link'),
+                decoration: const InputDecoration(
+                  labelText: 'Invite Link / Code',
+                  hintText: 'https://dartleagues.app/join#... or DL1-...'
+                ),
+                maxLines: 2,
               ),
-              const SizedBox(height: 16),
-               const Text('Storage Provider:', style: TextStyle(fontWeight: FontWeight.bold)),
-               DropdownButton<String>(
-                 value: selectedProvider,
-                 isExpanded: true,
-                 items: const [
-                   DropdownMenuItem(value: 'gdrive', child: Text('Google Drive')),
-                   DropdownMenuItem(value: 'dropbox', child: Text('Dropbox')),
-                   DropdownMenuItem(value: 'firebase', child: Text('Cloud (Legacy)')),
-                 ],
-                 onChanged: (v) {
-                    if(v != null) setState(() => selectedProvider = v);
-                 },
-               ),
             ],
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
             ElevatedButton(onPressed: () async {
-               if (codeCtrl.text.isNotEmpty) {
-                  Navigator.pop(ctx);
-                   try {
-                    await ref.read(leagueRepositoryProvider).joinLeague(codeCtrl.text, selectedProvider);
+               final input = codeCtrl.text.trim();
+               if (input.isEmpty) return;
+
+               Navigator.pop(ctx);
+               try {
+                  // 1. Try to decode as smart invite
+                  try {
+                     final payload = InviteCodec.decode(input);
+                     // 2. Use payload to join
+                     await _joinViaPayload(context, ref, payload);
                   } catch (e) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                     // Fallback: If it's a raw folder ID (legacy) or simple link
+                     // Prompt user for provider? Or just try?
+                     // For MVP, we'll assume it MUST be a new code.
+                     throw Exception('Invalid Invite Code format. Please ask the owner for a new Invite Link.');
                   }
+               } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Join failed: $e')));
                }
             }, child: const Text('Join')),
           ],
         );
       }
     ));
+  }
+
+  Future<void> _joinViaPayload(BuildContext context, WidgetRef ref, InvitePayload payload) async {
+     // Check if user needs to switch account?
+     // We just try to join using the provider specified in payload.
+     
+     // The Repo needs a localized "joinFromInvite" method ideally, but we can reuse 'joinLeague' 
+     // if 'joinLeague' is updated to handle the 'remoteRoot' map or we handle it here.
+     
+     // Current 'joinLeague(code, provider)' expects code to be the Remote Root ID/Path.
+     // We need to resolve that from the payload first.
+     
+     final repo = ref.read(leagueRepositoryProvider);
+     
+     // We need to expose a method to RESOLVE the invites first or add a new method to repo.
+     // Let's call a new method on repo: joinLeagueFromPayload
+     await repo.joinLeagueFromPayload(payload);
+     
+     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Joined ${payload.leagueName}!')));
   }
 }
 

@@ -176,4 +176,21 @@ class DropboxLeagueProvider implements LeagueSyncProvider {
     
     return utf8.decode(response.bodyBytes);
   }
+  Future<LeagueRemoteRef> resolveLeagueRootFromInvite(Map<String, String> remoteRoot) async {
+    // For Dropbox, we expect 'dropboxSharedFolderId' or 'dropboxSharedLink'
+    String? pathOrId;
+    if (remoteRoot.containsKey('dropboxSharedFolderId')) {
+       pathOrId = remoteRoot['dropboxSharedFolderId'];
+    } else if (remoteRoot.containsKey('dropboxSharedLink')) {
+       // TODO: Resolve link to ID using API 'sharing/get_shared_link_metadata'
+       pathOrId = remoteRoot['dropboxSharedLink']; 
+    }
+    
+    if (pathOrId == null) throw Exception('Invalid Invite for Dropbox');
+    
+    // Verify existence?
+    // listFolder(pathOrId);
+    
+    return LeagueRemoteRef(remoteRoot: pathOrId, providerId: 'dropbox');
+  }
 }

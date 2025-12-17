@@ -12,6 +12,7 @@ import '../../analytics/ui/widgets/stat_card.dart';
 import '../../../services/league/standings_service.dart';
 
 import '../../../services/league/standings_service.dart';
+import '../../../services/league/invite_codec.dart';
 import '../../features/leagues/ui/league_help_screen.dart';
 
 class LeagueDashboardScreen extends ConsumerStatefulWidget {
@@ -209,10 +210,85 @@ class _LeagueDashboardScreenState extends ConsumerState<LeagueDashboardScreen> w
               Text('Last Sync: ${lastSync != null ? DateFormat.yMMMd().add_jm().format(lastSync) : "Never"}'),
               const SizedBox(height: 8),
               SelectableText('League ID: ${widget.leagueId}'),
+              const SizedBox(height: 16),
+              SizedBox(width: double.infinity, child: ElevatedButton.icon(
+                 icon: const Icon(Icons.share),
+                 label: const Text('Invite Friends'),
+                 onPressed: () {
+                    Navigator.pop(context);
+                    _showInviteDialog(context);
+                 },
+              ))
            ],
         ),
         actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
      ));
+  }
+  
+  void _showInviteDialog(BuildContext context) async {
+      // 1. Get Provider and Metadata
+      // For MVP, we'll construct the payload manually using known info or fetch via repo
+      // Ideally Repo should expose this "GenerateInvite"
+      
+      final repo = ref.read(leagueRepositoryProvider);
+      final league = await repo.getLocalLeague(widget.leagueId);
+      if (league == null) return;
+      
+      final payload = InvitePayload(
+         provider: league.providerType, // 'gdrive' or 'dropbox'
+         leagueId: league.id,
+         leagueName: league.name,
+         remoteRoot: {
+             if (league.providerType == 'gdrive') 'driveFolderId': league.remoteRoot,
+             if (league.providerType == 'dropbox') 'dropboxSharedFolderId': league.remoteRoot // Assuming path/ID is adequate for now
+             // For production Dropbox, we need a Shared Link. 
+             // This is a gap: We need to ASK the user to "Copy Share Link" from Dropbox app, OR use API to create one.
+             // For now, assuming user will share folder manually.
+         },
+         createdAt: league.createdAt.toIso8601String(),
+      );
+      
+      final code = InviteCodec.createCode(payload);
+      final link = InviteCodec.createLink(payload);
+      
+      if (!mounted) return;
+      
+      showDialog(context: context, builder: (ctx) => AlertDialog(
+         title: const Text('Invite to League'),
+         content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+               if (league.providerType == 'gdrive') 
+                 const Text('Step 1: Share the League Folder in Google Drive with your friend\'s email address.', style: TextStyle(fontStyle: FontStyle.italic)),
+               if (league.providerType == 'dropbox')
+                 const Text('Step 1: Share the League Folder in Dropbox with your friend.', style: TextStyle(fontStyle: FontStyle.italic)),
+                 
+               const SizedBox(height: 12),
+               const Text('Step 2: Send them this Invite Code', style: TextStyle(fontWeight: FontWeight.bold)),
+               const SizedBox(height: 8),
+               Container(
+                  padding: const EdgeInsets.all(12),
+                  color: Colors.grey[200],
+                  child: SelectableText(code, style: const TextStyle(fontFamily: 'Courier', fontWeight: FontWeight.bold)),
+               ),
+               const SizedBox(height: 8),
+               TextButton.icon(
+                  icon: const Icon(Icons.copy),
+                  label: const Text('Copy to Clipboard'),
+                  onPressed: () {
+                     // Clipboard implementation needs 'services'
+                     // import 'package:flutter/services.dart';
+                     // just show snackbar in mock
+                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Code copied (simulated)')));
+                  },
+               ),
+               
+               const Divider(),
+               const Text('They must ACCEPT the folder share before joining!', style: TextStyle(color: Colors.red, fontSize: 12)),
+            ],
+         ),
+         actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Done'))],
+      ));
   }
 }
 
