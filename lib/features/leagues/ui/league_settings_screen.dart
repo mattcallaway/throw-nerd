@@ -218,7 +218,7 @@ class _LeagueSettingsScreenState extends ConsumerState<LeagueSettingsScreen> {
                          title: const Text('Manage Seasons'),
                          trailing: const Icon(Icons.arrow_forward_ios),
                          onTap: () {
-                             Navigator.push(context, MaterialPageRoute(builder: (_) => SeasonListScreen(leagueId: widget.leagueId, isOwner: true)));
+                             Navigator.push(context, MaterialPageRoute(builder: (_) => SeasonListScreen(leagueId: widget.leagueId, isOwner: isOwner)));
                          },
                       ),
                       ListTile(

@@ -82,10 +82,10 @@ class LeagueRepository {
     return (_db.select(_db.leagues)..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
       .watch()
       .map((rows) => rows.map((r) {
-         domain.LeagueRules? rules;
+         LeagueRules? rules;
          if (r.rulesJson != null) {
             try {
-              rules = domain.LeagueRules.fromJson(jsonDecode(r.rulesJson!));
+              rules = LeagueRules.fromJson(jsonDecode(r.rulesJson!));
             } catch (_) {}
          }
          return domain.League(

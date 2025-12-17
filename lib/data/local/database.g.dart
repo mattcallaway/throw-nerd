@@ -414,6 +414,12 @@ class $LeaguesTable extends Leagues with TableInfo<$LeaguesTable, League> {
   late final GeneratedColumn<String> activeSeasonId = GeneratedColumn<String>(
       'active_season_id', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _rulesJsonMeta =
+      const VerificationMeta('rulesJson');
+  @override
+  late final GeneratedColumn<String> rulesJson = GeneratedColumn<String>(
+      'rules_json', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   @override
   List<GeneratedColumn> get $columns => [
         id,
@@ -425,7 +431,8 @@ class $LeaguesTable extends Leagues with TableInfo<$LeaguesTable, League> {
         lastSyncAt,
         ownerId,
         mode,
-        activeSeasonId
+        activeSeasonId,
+        rulesJson
       ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -492,6 +499,10 @@ class $LeaguesTable extends Leagues with TableInfo<$LeaguesTable, League> {
           activeSeasonId.isAcceptableOrUnknown(
               data['active_season_id']!, _activeSeasonIdMeta));
     }
+    if (data.containsKey('rules_json')) {
+      context.handle(_rulesJsonMeta,
+          rulesJson.isAcceptableOrUnknown(data['rules_json']!, _rulesJsonMeta));
+    }
     return context;
   }
 
@@ -521,6 +532,8 @@ class $LeaguesTable extends Leagues with TableInfo<$LeaguesTable, League> {
           .read(DriftSqlType.string, data['${effectivePrefix}mode'])!,
       activeSeasonId: attachedDatabase.typeMapping.read(
           DriftSqlType.string, data['${effectivePrefix}active_season_id']),
+      rulesJson: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}rules_json']),
     );
   }
 
@@ -541,6 +554,7 @@ class League extends DataClass implements Insertable<League> {
   final String? ownerId;
   final String mode;
   final String? activeSeasonId;
+  final String? rulesJson;
   const League(
       {required this.id,
       required this.name,
@@ -551,7 +565,8 @@ class League extends DataClass implements Insertable<League> {
       this.lastSyncAt,
       this.ownerId,
       required this.mode,
-      this.activeSeasonId});
+      this.activeSeasonId,
+      this.rulesJson});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -574,6 +589,9 @@ class League extends DataClass implements Insertable<League> {
     map['mode'] = Variable<String>(mode);
     if (!nullToAbsent || activeSeasonId != null) {
       map['active_season_id'] = Variable<String>(activeSeasonId);
+    }
+    if (!nullToAbsent || rulesJson != null) {
+      map['rules_json'] = Variable<String>(rulesJson);
     }
     return map;
   }
@@ -600,6 +618,9 @@ class League extends DataClass implements Insertable<League> {
       activeSeasonId: activeSeasonId == null && nullToAbsent
           ? const Value.absent()
           : Value(activeSeasonId),
+      rulesJson: rulesJson == null && nullToAbsent
+          ? const Value.absent()
+          : Value(rulesJson),
     );
   }
 
@@ -617,6 +638,7 @@ class League extends DataClass implements Insertable<League> {
       ownerId: serializer.fromJson<String?>(json['ownerId']),
       mode: serializer.fromJson<String>(json['mode']),
       activeSeasonId: serializer.fromJson<String?>(json['activeSeasonId']),
+      rulesJson: serializer.fromJson<String?>(json['rulesJson']),
     );
   }
   @override
@@ -633,6 +655,7 @@ class League extends DataClass implements Insertable<League> {
       'ownerId': serializer.toJson<String?>(ownerId),
       'mode': serializer.toJson<String>(mode),
       'activeSeasonId': serializer.toJson<String?>(activeSeasonId),
+      'rulesJson': serializer.toJson<String?>(rulesJson),
     };
   }
 
@@ -646,7 +669,8 @@ class League extends DataClass implements Insertable<League> {
           Value<DateTime?> lastSyncAt = const Value.absent(),
           Value<String?> ownerId = const Value.absent(),
           String? mode,
-          Value<String?> activeSeasonId = const Value.absent()}) =>
+          Value<String?> activeSeasonId = const Value.absent(),
+          Value<String?> rulesJson = const Value.absent()}) =>
       League(
         id: id ?? this.id,
         name: name ?? this.name,
@@ -659,6 +683,7 @@ class League extends DataClass implements Insertable<League> {
         mode: mode ?? this.mode,
         activeSeasonId:
             activeSeasonId.present ? activeSeasonId.value : this.activeSeasonId,
+        rulesJson: rulesJson.present ? rulesJson.value : this.rulesJson,
       );
   League copyWithCompanion(LeaguesCompanion data) {
     return League(
@@ -679,6 +704,7 @@ class League extends DataClass implements Insertable<League> {
       activeSeasonId: data.activeSeasonId.present
           ? data.activeSeasonId.value
           : this.activeSeasonId,
+      rulesJson: data.rulesJson.present ? data.rulesJson.value : this.rulesJson,
     );
   }
 
@@ -694,14 +720,25 @@ class League extends DataClass implements Insertable<League> {
           ..write('lastSyncAt: $lastSyncAt, ')
           ..write('ownerId: $ownerId, ')
           ..write('mode: $mode, ')
-          ..write('activeSeasonId: $activeSeasonId')
+          ..write('activeSeasonId: $activeSeasonId, ')
+          ..write('rulesJson: $rulesJson')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, name, providerType, remoteRoot,
-      inviteCode, createdAt, lastSyncAt, ownerId, mode, activeSeasonId);
+  int get hashCode => Object.hash(
+      id,
+      name,
+      providerType,
+      remoteRoot,
+      inviteCode,
+      createdAt,
+      lastSyncAt,
+      ownerId,
+      mode,
+      activeSeasonId,
+      rulesJson);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -715,7 +752,8 @@ class League extends DataClass implements Insertable<League> {
           other.lastSyncAt == this.lastSyncAt &&
           other.ownerId == this.ownerId &&
           other.mode == this.mode &&
-          other.activeSeasonId == this.activeSeasonId);
+          other.activeSeasonId == this.activeSeasonId &&
+          other.rulesJson == this.rulesJson);
 }
 
 class LeaguesCompanion extends UpdateCompanion<League> {
@@ -729,6 +767,7 @@ class LeaguesCompanion extends UpdateCompanion<League> {
   final Value<String?> ownerId;
   final Value<String> mode;
   final Value<String?> activeSeasonId;
+  final Value<String?> rulesJson;
   final Value<int> rowid;
   const LeaguesCompanion({
     this.id = const Value.absent(),
@@ -741,6 +780,7 @@ class LeaguesCompanion extends UpdateCompanion<League> {
     this.ownerId = const Value.absent(),
     this.mode = const Value.absent(),
     this.activeSeasonId = const Value.absent(),
+    this.rulesJson = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   LeaguesCompanion.insert({
@@ -754,6 +794,7 @@ class LeaguesCompanion extends UpdateCompanion<League> {
     this.ownerId = const Value.absent(),
     this.mode = const Value.absent(),
     this.activeSeasonId = const Value.absent(),
+    this.rulesJson = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : id = Value(id),
         name = Value(name),
@@ -769,6 +810,7 @@ class LeaguesCompanion extends UpdateCompanion<League> {
     Expression<String>? ownerId,
     Expression<String>? mode,
     Expression<String>? activeSeasonId,
+    Expression<String>? rulesJson,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -782,6 +824,7 @@ class LeaguesCompanion extends UpdateCompanion<League> {
       if (ownerId != null) 'owner_id': ownerId,
       if (mode != null) 'mode': mode,
       if (activeSeasonId != null) 'active_season_id': activeSeasonId,
+      if (rulesJson != null) 'rules_json': rulesJson,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -797,6 +840,7 @@ class LeaguesCompanion extends UpdateCompanion<League> {
       Value<String?>? ownerId,
       Value<String>? mode,
       Value<String?>? activeSeasonId,
+      Value<String?>? rulesJson,
       Value<int>? rowid}) {
     return LeaguesCompanion(
       id: id ?? this.id,
@@ -809,6 +853,7 @@ class LeaguesCompanion extends UpdateCompanion<League> {
       ownerId: ownerId ?? this.ownerId,
       mode: mode ?? this.mode,
       activeSeasonId: activeSeasonId ?? this.activeSeasonId,
+      rulesJson: rulesJson ?? this.rulesJson,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -846,6 +891,9 @@ class LeaguesCompanion extends UpdateCompanion<League> {
     if (activeSeasonId.present) {
       map['active_season_id'] = Variable<String>(activeSeasonId.value);
     }
+    if (rulesJson.present) {
+      map['rules_json'] = Variable<String>(rulesJson.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -865,6 +913,7 @@ class LeaguesCompanion extends UpdateCompanion<League> {
           ..write('ownerId: $ownerId, ')
           ..write('mode: $mode, ')
           ..write('activeSeasonId: $activeSeasonId, ')
+          ..write('rulesJson: $rulesJson, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -4391,6 +4440,7 @@ typedef $$LeaguesTableCreateCompanionBuilder = LeaguesCompanion Function({
   Value<String?> ownerId,
   Value<String> mode,
   Value<String?> activeSeasonId,
+  Value<String?> rulesJson,
   Value<int> rowid,
 });
 typedef $$LeaguesTableUpdateCompanionBuilder = LeaguesCompanion Function({
@@ -4404,6 +4454,7 @@ typedef $$LeaguesTableUpdateCompanionBuilder = LeaguesCompanion Function({
   Value<String?> ownerId,
   Value<String> mode,
   Value<String?> activeSeasonId,
+  Value<String?> rulesJson,
   Value<int> rowid,
 });
 
@@ -4434,6 +4485,7 @@ class $$LeaguesTableTableManager extends RootTableManager<
             Value<String?> ownerId = const Value.absent(),
             Value<String> mode = const Value.absent(),
             Value<String?> activeSeasonId = const Value.absent(),
+            Value<String?> rulesJson = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               LeaguesCompanion(
@@ -4447,6 +4499,7 @@ class $$LeaguesTableTableManager extends RootTableManager<
             ownerId: ownerId,
             mode: mode,
             activeSeasonId: activeSeasonId,
+            rulesJson: rulesJson,
             rowid: rowid,
           ),
           createCompanionCallback: ({
@@ -4460,6 +4513,7 @@ class $$LeaguesTableTableManager extends RootTableManager<
             Value<String?> ownerId = const Value.absent(),
             Value<String> mode = const Value.absent(),
             Value<String?> activeSeasonId = const Value.absent(),
+            Value<String?> rulesJson = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               LeaguesCompanion.insert(
@@ -4473,6 +4527,7 @@ class $$LeaguesTableTableManager extends RootTableManager<
             ownerId: ownerId,
             mode: mode,
             activeSeasonId: activeSeasonId,
+            rulesJson: rulesJson,
             rowid: rowid,
           ),
         ));
@@ -4528,6 +4583,11 @@ class $$LeaguesTableFilterComposer
 
   ColumnFilters<String> get activeSeasonId => $state.composableBuilder(
       column: $state.table.activeSeasonId,
+      builder: (column, joinBuilders) =>
+          ColumnFilters(column, joinBuilders: joinBuilders));
+
+  ColumnFilters<String> get rulesJson => $state.composableBuilder(
+      column: $state.table.rulesJson,
       builder: (column, joinBuilders) =>
           ColumnFilters(column, joinBuilders: joinBuilders));
 
@@ -4621,6 +4681,11 @@ class $$LeaguesTableOrderingComposer
 
   ColumnOrderings<String> get activeSeasonId => $state.composableBuilder(
       column: $state.table.activeSeasonId,
+      builder: (column, joinBuilders) =>
+          ColumnOrderings(column, joinBuilders: joinBuilders));
+
+  ColumnOrderings<String> get rulesJson => $state.composableBuilder(
+      column: $state.table.rulesJson,
       builder: (column, joinBuilders) =>
           ColumnOrderings(column, joinBuilders: joinBuilders));
 }

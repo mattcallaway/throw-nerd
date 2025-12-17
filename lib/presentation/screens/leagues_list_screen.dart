@@ -6,6 +6,7 @@ import '../theme/app_themes.dart';
 import '../widgets/glass_card.dart';
 import 'league_dashboard_screen.dart';
 import '../providers/di_providers.dart';
+import '../../features/leagues/ui/league_help_screen.dart';
 
 class LeaguesListScreen extends ConsumerWidget {
   const LeaguesListScreen({super.key});
@@ -21,6 +22,12 @@ class LeaguesListScreen extends ConsumerWidget {
         title: const Text('My Leagues'),
         backgroundColor: Colors.transparent,
         elevation: 0,
+        actions: [
+           IconButton(
+              icon: const Icon(Icons.help_outline),
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LeagueHelpScreen())),
+           )
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {

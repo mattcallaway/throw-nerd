@@ -11,6 +11,8 @@ import '../providers/active_match_notifier.dart';
 import '../../data/repositories/league_repository.dart';
 import 'scoring_screen.dart';
 
+import '../../domain/game_match.dart';
+
 class MatchSetupScreen extends ConsumerStatefulWidget {
   final String? initialLeagueId;
   const MatchSetupScreen({super.key, this.initialLeagueId});
@@ -330,7 +332,7 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
                               // All / Other Players
                               ExpansionTile(
                                 title: const Text('All Players'),
-                                init(expanded: true) => this, // Hack or just use default
+
                                 initiallyExpanded: !_isLeagueGame,
                                 children: allPlayers.map((p) => CheckboxListTile(
                                   title: Text(p.name),
@@ -458,7 +460,6 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
        name: 'Guest ${_selectedPlayerIds.length + 1}',
        color: const Color(0xFF888888),
        avatar: null,
-       isGuest: true,
      );
      await repo.createPlayer(newGuest);
      setState(() => _selectedPlayerIds.add(newGuest.id));
@@ -488,7 +489,6 @@ class _MatchSetupScreenState extends ConsumerState<MatchSetupScreen> {
             name: name,
             color: Colors.blue, // Randomize?
             avatar: null,
-            isGuest: false
           );
           
           await repo.createPlayer(newPlayer);

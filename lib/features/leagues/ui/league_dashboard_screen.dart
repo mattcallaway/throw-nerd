@@ -9,6 +9,7 @@ import '../../../domain/game_match.dart';
 import '../../../domain/scoring/models.dart';
 import 'league_settings_screen.dart';
 import '../../analytics/ui/widgets/stat_card.dart';
+import '../../../services/league/standings_service.dart';
 
 class LeagueDashboardScreen extends ConsumerStatefulWidget {
   final String leagueId;
@@ -121,38 +122,67 @@ class _LeagueDashboardScreenState extends ConsumerState<LeagueDashboardScreen> w
   }
 
   Widget _buildLeaderboardTab() {
-     // Compute leaderboard from matches
      final matchesAsync = ref.watch(leagueMatchesProvider(widget.leagueId));
+     // We also need player names. Ideally invalidation of leagueMatches triggers rebuild and we fetch players.
+     final playersAsync = ref.watch(allPlayersProvider);
      
      return matchesAsync.when(
         data: (matches) {
-           if (matches.isEmpty) return const Center(child: Text('No data for leaderboard.'));
-           
-           // Simple Aggregation
-           final stats = <String, _PlayerLeagueStats>{};
-           
-           for (var m in matches) {
-              if (m.finishedAt == null) continue;
-              for (var pid in m.playerIds) {
-                 stats.putIfAbsent(pid, () => _PlayerLeagueStats(name: pid)); // Name might be unavailable? Use ID.
-                 final s = stats[pid]!;
-                 s.matches++;
-                 if (m.winnerId == pid) s.wins++;
-              }
-           }
-           
-           final sorted = stats.values.toList()..sort((a,b) => b.wins.compareTo(a.wins));
-           
-           return ListView.builder(
-              itemCount: sorted.length,
-              itemBuilder: (ctx, i) {
-                 final s = sorted[i];
-                 return ListTile(
-                    leading: CircleAvatar(child: Text('${i+1}')),
-                    title: Text(s.name), // In real app, resolve name from ID
-                    trailing: Text('${s.wins} Wins / ${s.matches} Played'),
-                 );
-              },
+           return playersAsync.when(
+             data: (players) {
+                if (matches.isEmpty) return const Center(child: Text('No matches recorded.'));
+                
+                final standings = LeagueStandingsService.calculateStandings(matches, players);
+                
+                if (standings.isEmpty) return const Center(child: Text('No complete matches found.'));
+                
+                return Column(
+                  children: [
+                    // Header
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                      child: Row(
+                        children: [
+                           SizedBox(width: 40, child: Text('#', style: TextStyle(fontWeight: FontWeight.bold))),
+                           Expanded(child: Text('Player', style: TextStyle(fontWeight: FontWeight.bold))),
+                           SizedBox(width: 40, child: Text('P', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold))),
+                           SizedBox(width: 40, child: Text('W', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold))),
+                           SizedBox(width: 40, child: Text('L', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold))),
+                           SizedBox(width: 40, child: Text('Pts', textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold))),
+                        ],
+                      ),
+                    ),
+                    const Divider(),
+                    Expanded(
+                      child: ListView.separated(
+                        itemCount: standings.length,
+                        separatorBuilder: (_,__) => const Divider(height: 1),
+                        itemBuilder: (ctx, i) {
+                           final row = standings[i];
+                           final bool isUser = false; // Highlight logic if we knew current user
+                           
+                           return Container(
+                             color: isUser ? Colors.blue.withOpacity(0.1) : null,
+                             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                             child: Row(
+                                children: [
+                                   SizedBox(width: 40, child: Text('${i+1}')),
+                                   Expanded(child: Text(row.name, style: const TextStyle(fontWeight: FontWeight.w500))),
+                                   SizedBox(width: 40, child: Text('${row.matchesPlayed}', textAlign: TextAlign.center)),
+                                   SizedBox(width: 40, child: Text('${row.wins}', textAlign: TextAlign.center, style: const TextStyle(color: Colors.green))),
+                                   SizedBox(width: 40, child: Text('${row.losses}', textAlign: TextAlign.center, style: const TextStyle(color: Colors.red))),
+                                   SizedBox(width: 40, child: Text('${row.points}', textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                ],
+                             ),
+                           );
+                        },
+                      ),
+                    ),
+                  ],
+                );
+             },
+             loading: () => const Center(child: CircularProgressIndicator()),
+             error: (e, s) => Center(child: Text('Error loading players: $e')),
            );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
