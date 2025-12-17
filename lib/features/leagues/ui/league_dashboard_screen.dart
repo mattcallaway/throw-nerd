@@ -11,6 +11,9 @@ import 'league_settings_screen.dart';
 import '../../analytics/ui/widgets/stat_card.dart';
 import '../../../services/league/standings_service.dart';
 
+import '../../../services/league/standings_service.dart';
+import '../../features/leagues/ui/league_help_screen.dart';
+
 class LeagueDashboardScreen extends ConsumerStatefulWidget {
   final String leagueId;
   final String leagueName;
@@ -62,6 +65,10 @@ class _LeagueDashboardScreenState extends ConsumerState<LeagueDashboardScreen> w
               : const Icon(Icons.sync),
             onPressed: _isSyncing ? null : _sync,
             tooltip: 'Sync Now',
+          ),
+          IconButton(
+             icon: const Icon(Icons.help_outline),
+             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LeagueHelpScreen())),
           ),
           IconButton(
              icon: const Icon(Icons.settings),

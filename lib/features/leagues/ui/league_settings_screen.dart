@@ -175,7 +175,8 @@ class _LeagueSettingsScreenState extends ConsumerState<LeagueSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-     final userId = 'user_1'; // Mock ID usage consistent with Repository
+     final repo = ref.read(leagueRepositoryProvider);
+     final userId = repo.userId;
      
      return Scaffold(
        appBar: AppBar(title: const Text('League Settings')),

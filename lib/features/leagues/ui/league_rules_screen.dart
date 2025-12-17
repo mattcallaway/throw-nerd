@@ -31,7 +31,8 @@ class _LeagueRulesScreenState extends ConsumerState<LeagueRulesScreen> {
        final meta = await service.fetchLeagueMetadata(widget.leagueId);
        
        if (meta != null) {
-          final userId = 'user_1'; // Mock user
+          final repo = ref.read(leagueRepositoryProvider);
+          final userId = repo.userId;
           setState(() {
              _rules = meta.rules ?? LeagueRules();
              _isOwner = meta.ownerId == userId;
