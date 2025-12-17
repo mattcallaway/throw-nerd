@@ -92,4 +92,19 @@ class FirebaseLeagueProvider implements LeagueSyncProvider {
      
      return MatchExport.fromJson(doc.data()!);
   }
+  @override
+  Future<String> readTextFile(String pathOrId) async {
+    throw UnimplementedError('Firebase provider does not use file-based metadata yet');
+  }
+
+  @override
+  Future<void> uploadTextFile(String pathOrId, String content, {bool overwrite = false}) async {
+    throw UnimplementedError('Firebase provider does not use file-based metadata yet');
+  }
+
+  @override
+  Future<List<RemoteFile>> listFolder(String pathOrId) async {
+    throw UnimplementedError('Firebase provider does not use file-based metadata yet');
+  }
 }
+

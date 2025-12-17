@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'league_file_models.dart';
+
 class League {
   final String id;
   final String name;
@@ -7,12 +9,20 @@ class League {
   final DateTime createdAt;
   final int schemaVersion;
   
+  // New Fields
+  final String mode;
+  final String? activeSeasonId;
+  final LeagueRules? rules;
+  
   League({
     required this.id,
     required this.name,
     required this.createdBy,
     required this.createdAt,
     this.schemaVersion = 1,
+    this.mode = 'informal',
+    this.activeSeasonId,
+    this.rules,
   });
   
   // Factory for Firestore
@@ -24,6 +34,9 @@ class League {
       createdBy: data['createdBy'] ?? '',
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       schemaVersion: data['schemaVersion'] ?? 1,
+      mode: data['mode'] ?? 'informal',
+      activeSeasonId: data['activeSeasonId'],
+      // rules from firestore? usually serialized. For now mostly used for local db mapping.
     );
   }
   
@@ -33,6 +46,7 @@ class League {
       'createdBy': createdBy,
       'createdAt': Timestamp.fromDate(createdAt),
       'schemaVersion': schemaVersion,
+      'mode': mode,
     };
   }
 }

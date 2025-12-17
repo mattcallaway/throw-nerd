@@ -40,6 +40,20 @@ abstract class LeagueSyncProvider {
     required LeagueRemoteRef leagueRef,
     required String remoteMatchId, // Could be file path or doc ID
   });
+  
+  // --- Generic File Operations (for Metadata) ---
+  
+  /// Reads a text file from the provider relative to the league root or by ID
+  Future<String> readTextFile(String pathOrId);
+  
+  /// Writes a text file (overwrite or create)
+  /// [pathOrId] might be a path (Dropbox) or ParentID/FileID (GDrive)
+  /// Implementations should handle "create if new, update if exists" logic if possible 
+  /// or we rely on logic keying off existing file lists.
+  Future<void> uploadTextFile(String pathOrId, String content, {bool overwrite = false});
+  
+  /// List files in a folder
+  Future<List<RemoteFile>> listFolder(String pathOrId);
 }
 
 class LeagueRemoteRef {
@@ -63,4 +77,13 @@ class RemoteMatchDescriptor {
   final DateTime modifiedAt;
   
   RemoteMatchDescriptor({required this.remoteId, required this.matchId, required this.modifiedAt});
+}
+
+class RemoteFile {
+  final String id; // ID or Path
+  final String name;
+  final bool isFolder;
+  final DateTime? modifiedAt;
+  
+  RemoteFile({required this.id, required this.name, required this.isFolder, this.modifiedAt});
 }

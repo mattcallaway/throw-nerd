@@ -11,11 +11,11 @@ abstract class IMatchRepository {
   Future<List<GameMatch>> getHeadToHeadMatches(String player1Id, String player2Id, {int limit = 20});
   
   // Sync
-  Future<void> setMatchLeagueSyncStatus(String matchId, String leagueId, String source, String? remoteId);
+  Future<void> setMatchLeagueSyncStatus(String matchId, String leagueId, String source, String? remoteId, {String? complianceStatus});
   Future<bool> existsByRemoteId(String remoteId);
 
   // Basic filtering for History
-  Stream<List<GameMatch>> watchMatches({GameType? type, String? locationId, String? leagueId, int limit = 50});
+  Stream<List<GameMatch>> watchMatches({GameType? type, String? locationId, String? leagueId, String? source, int limit = 50});
   
   // Stats
   Future<PlayerStats> getPlayerStats(String playerId);

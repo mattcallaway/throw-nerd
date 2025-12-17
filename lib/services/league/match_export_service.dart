@@ -15,7 +15,7 @@ class MatchExportService {
       completedAt: match.finishedAt ?? DateTime.now(),
       locationName: locationName,
       gameType: match.config.type == GameType.x01 ? 'x01' : 'cricket',
-      settingsJson: match.settingsJson ?? '{}', // Propagate raw settings
+      settingsJson: match.settingsJson ?? jsonEncode(match.config.toJson()),
       winnerId: match.winnerId,
       players: match.playerIds.map((pid) {
          return MatchPlayerExport(
@@ -27,9 +27,9 @@ class MatchExportService {
       turns: turns.map((t) {
          return TurnExport(
            playerId: t.playerId,
-           leg: 1, // TODO: derived?
-           set: 1,
-           round: 1, 
+           leg: t.legIndex ?? 1,
+           set: t.setIndex ?? 1,
+           round: t.roundIndex ?? 1, 
            darts: t.darts.map((d) => DartExport(value: d.value, multiplier: d.multiplier)).toList(),
          );
       }).toList(),

@@ -106,6 +106,30 @@ class DropboxLeagueProvider implements LeagueSyncProvider {
      return MatchExport.fromJson(jsonDecode(jsonStr));
   }
   
+  @override
+  Future<String> readTextFile(String pathOrId) async {
+    return _downloadFile(pathOrId);
+  }
+
+  @override
+  Future<void> uploadTextFile(String pathOrId, String content, {bool overwrite = false}) async {
+     await _uploadFile(pathOrId, content, mode: overwrite ? 'overwrite' : 'add');
+  }
+
+  @override
+  Future<List<RemoteFile>> listFolder(String pathOrId) async {
+     final result = await _rpc('files/list_folder', {'path': pathOrId});
+     final entries = result['entries'] as List;
+     return entries.map((e) {
+        return RemoteFile(
+           id: e['path_lower'],
+           name: e['name'],
+           isFolder: e['.tag'] == 'folder',
+           modifiedAt: e['client_modified'] != null ? DateTime.parse(e['client_modified']) : null,
+        );
+     }).toList();
+  }
+  
   // --- Private Helpers ---
   
   Future<dynamic> _rpc(String endpoint, Map<String, dynamic> body) async {
@@ -113,27 +137,22 @@ class DropboxLeagueProvider implements LeagueSyncProvider {
     final response = await http.post(url, headers: _headers, body: jsonEncode(body));
     
     if (response.statusCode >= 400) {
-      // 409 means path exists (often okay for create_folder)
       if (endpoint.contains('create_folder') && response.statusCode == 409) {
-         // Return existing (simplified) ?? 
-         // Actually verify error summary.
-         return {}; 
+         return {}; // Ignore collision
       }
       throw Exception('Dropbox RPC Error ($endpoint): ${response.body}');
     }
     return jsonDecode(response.body);
   }
   
-  Future<void> _uploadFile(String path, String content) async {
-    // upload session not needed for small JSON
-    // content.upload: https://content.dropboxapi.com/2/files/upload
+  Future<void> _uploadFile(String path, String content, {String mode = 'overwrite'}) async {
     final url = Uri.parse('https://content.dropboxapi.com/2/files/upload');
     final headers = {
       'Authorization': 'Bearer $_accessToken',
       'Content-Type': 'application/octet-stream',
       'Dropbox-API-Arg': jsonEncode({
         'path': path,
-        'mode': 'overwrite',
+        'mode': mode,
         'autorename': false,
         'mute': false,
       }),

@@ -10,7 +10,7 @@ import 'locations_screen.dart';
 import '../../features/analytics/ui/analytics_home_screen.dart';
 import 'backup_screen.dart';
 import 'match_history_screen.dart';
-import 'package:darts_app/presentation/screens/leagues_list_screen.dart';
+import '../../features/leagues/ui/leagues_list_screen.dart';
 import 'settings_screen.dart';
 
 class HomeScreen extends ConsumerWidget {

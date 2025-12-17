@@ -47,11 +47,12 @@ class DriftMatchRepository implements IMatchRepository {
   }
   
   @override
-  Future<void> setMatchLeagueSyncStatus(String matchId, String leagueId, String source, String? remoteId) async {
+  Future<void> setMatchLeagueSyncStatus(String matchId, String leagueId, String source, String? remoteId, {String? complianceStatus}) async {
     final companion = db.MatchesCompanion(
       leagueId: Value(leagueId),
       source: Value(source),
       remoteId: remoteId != null ? Value(remoteId) : const Value.absent(),
+      complianceStatus: complianceStatus != null ? Value(complianceStatus) : const Value.absent(),
     );
     await (_db.update(_db.matches)..where((t) => t.id.equals(matchId))).write(companion);
   }
@@ -82,6 +83,9 @@ class DriftMatchRepository implements IMatchRepository {
       winnerId: matchRow.winnerId,
       isCanceled: matchRow.isCanceled,
       locationId: matchRow.locationId,
+      leagueId: matchRow.leagueId,
+      source: matchRow.source,
+      complianceStatus: matchRow.complianceStatus,
     );
   }
 
@@ -108,6 +112,9 @@ class DriftMatchRepository implements IMatchRepository {
         winnerId: row.winnerId,
         isCanceled: row.isCanceled,
         locationId: row.locationId,
+        leagueId: row.leagueId,
+        source: row.source,
+        complianceStatus: row.complianceStatus,
       ));
     }
     return results;
@@ -141,6 +148,9 @@ class DriftMatchRepository implements IMatchRepository {
         winnerId: matchRow.winnerId,
         isCanceled: matchRow.isCanceled,
         locationId: matchRow.locationId,
+        leagueId: matchRow.leagueId,
+        source: matchRow.source,
+        complianceStatus: matchRow.complianceStatus,
       ));
     }
     return results;
@@ -178,7 +188,7 @@ class DriftMatchRepository implements IMatchRepository {
   }
 
   @override
-  Stream<List<GameMatch>> watchMatches({GameType? type, String? locationId, String? leagueId, int limit = 50}) {
+  Stream<List<GameMatch>> watchMatches({GameType? type, String? locationId, String? leagueId, String? source, int limit = 50}) {
       final query = _db.select(_db.matches)
         ..orderBy([(t) => OrderingTerm.desc(t.createdAt)])
         ..limit(limit);
@@ -191,6 +201,9 @@ class DriftMatchRepository implements IMatchRepository {
       }
       if (leagueId != null) {
         query.where((t) => t.leagueId.equals(leagueId));
+      }
+      if (source != null) {
+        query.where((t) => t.source.equals(source));
       }
 
      return query.watch().asyncMap((rows) => _mapRowsToGameMatches(rows));
@@ -216,6 +229,9 @@ class DriftMatchRepository implements IMatchRepository {
             winnerId: matchRow.winnerId,
             isCanceled: matchRow.isCanceled,
             locationId: matchRow.locationId,
+            leagueId: matchRow.leagueId,
+            source: matchRow.source,
+            complianceStatus: matchRow.complianceStatus,
           ));
        }
        return results;
@@ -250,7 +266,10 @@ class DriftMatchRepository implements IMatchRepository {
     // we map them to Domain Turn
     return rows.map((r) => Turn(
       playerId: r.playerId,
-      darts: r.darts, 
+      darts: r.darts,
+      legIndex: r.legIndex,
+      setIndex: r.setIndex,
+      roundIndex: r.roundIndex,
     )).toList();
   }
   

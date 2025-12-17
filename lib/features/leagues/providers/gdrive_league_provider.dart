@@ -111,12 +111,80 @@ class GoogleDriveLeagueProvider implements LeagueSyncProvider {
 
   @override
   Future<MatchExport> downloadMatchPayload({required LeagueRemoteRef leagueRef, required String remoteMatchId}) async {
-     final file = await _api.files.get(remoteMatchId, downloadOptions: drive.DownloadOptions.fullMedia) as drive.Media;
-     
-     final jsonStr = await utf8.decodeStream(file.stream);
+     final jsonStr = await readTextFile(remoteMatchId);
      return MatchExport.fromJson(jsonDecode(jsonStr));
   }
   
+  @override
+  Future<String> readTextFile(String pathOrId) async {
+    String fileId = pathOrId;
+    if (pathOrId.contains('/')) {
+       final parts = pathOrId.split('/');
+       final parentId = parts[0];
+       final name = parts[1];
+       final found = await _findFileOrFolder(parentId, name);
+       if (found == null) throw Exception('File not found: $pathOrId');
+       fileId = found;
+    }
+    
+    final file = await _api.files.get(fileId, downloadOptions: drive.DownloadOptions.fullMedia) as drive.Media;
+    return utf8.decodeStream(file.stream);
+  }
+
+  @override
+  Future<void> uploadTextFile(String pathOrId, String content, {bool overwrite = false}) async {
+    String? parentId;
+    String? name;
+    String? fileId;
+    
+    if (pathOrId.contains('/')) {
+       final parts = pathOrId.split('/');
+       parentId = parts[0];
+       name = parts.sublist(1).join('/'); // Allow nested? No, GDrive is ID based. Assume "Parent/Name".
+       // Check if exists
+       fileId = await _findFileOrFolder(parentId, name!);
+    } else {
+       // Assume existing File ID
+       fileId = pathOrId;
+    }
+    
+    final bytes = utf8.encode(content);
+    final media = drive.Media(Stream.value(bytes), bytes.length);
+
+    if (fileId != null) {
+       if (overwrite) {
+         await _api.files.update(drive.File(), fileId, uploadMedia: media);
+       } else {
+         // Error or ignore? 
+         throw Exception('File exists and overwrite is false');
+       }
+    } else {
+       if (parentId != null && name != null) {
+          // Create
+          var file = drive.File()..name = name..parents = [parentId];
+          await _api.files.create(file, uploadMedia: media);
+       } else {
+          throw Exception('Cannot create file without ParentID/Name path');
+       }
+    }
+  }
+
+  @override
+  Future<List<RemoteFile>> listFolder(String pathOrId) async {
+     // pathOrId is Folder ID
+     final q = "'$pathOrId' in parents and trashed = false";
+     final list = await _api.files.list(q: q, $fields: 'files(id, name, mimeType, modifiedTime)');
+     
+     return (list.files ?? []).map((f) {
+        return RemoteFile(
+           id: f.id!,
+           name: f.name ?? 'unknown',
+           isFolder: f.mimeType == 'application/vnd.google-apps.folder',
+           modifiedAt: f.modifiedTime,
+        );
+     }).toList();
+  }
+
   // Helpers
   
   Future<String> _getOrCreateFolder(String name) async {
@@ -142,14 +210,15 @@ class GoogleDriveLeagueProvider implements LeagueSyncProvider {
      final list = await _api.files.list(q: q);
      return list.files?.firstOrNull?.id;
   }
+
+  Future<String?> _findFileOrFolder(String parentId, String name) async {
+     final q = "'$parentId' in parents and name = '$name' and trashed = false";
+     final list = await _api.files.list(q: q);
+     return list.files?.firstOrNull?.id;
+  }
   
   Future<void> _uploadJsonFile(String parentId, String name, Map<String, dynamic> content) async {
      final jsonStr = jsonEncode(content);
-     final bytes = utf8.encode(jsonStr);
-     final stream = Stream.value(bytes);
-     
-     var file = drive.File()..name = name..parents = [parentId];
-     final media = drive.Media(stream, bytes.length);
-     await _api.files.create(file, uploadMedia: media);
+     await uploadTextFile('$parentId/$name', jsonStr);
   }
 }

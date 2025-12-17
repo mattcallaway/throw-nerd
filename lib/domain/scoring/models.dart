@@ -39,15 +39,27 @@ class Dart {
 class Turn {
   final String playerId;
   final List<Dart> darts;
+  final int? legIndex;
+  final int? setIndex;
+  final int? roundIndex;
   
-  const Turn({required this.playerId, required this.darts});
+  const Turn({
+    required this.playerId, 
+    required this.darts,
+    this.legIndex,
+    this.setIndex,
+    this.roundIndex,
+  });
 
   int get totalScore => darts.fold(0, (sum, dart) => sum + dart.total);
 
-  Turn copyWith({String? playerId, List<Dart>? darts}) {
+  Turn copyWith({String? playerId, List<Dart>? darts, int? legIndex, int? setIndex, int? roundIndex}) {
     return Turn(
       playerId: playerId ?? this.playerId,
       darts: darts ?? this.darts,
+      legIndex: legIndex ?? this.legIndex,
+      setIndex: setIndex ?? this.setIndex,
+      roundIndex: roundIndex ?? this.roundIndex,
     );
   }
 }

@@ -44,12 +44,18 @@ class _AccountsScreenState extends ConsumerState<AccountsScreen> {
   
   Future<void> _toggle(String providerId, bool currentStatus) async {
      final coord = ref.read(authCoordinatorProvider);
-     if (currentStatus) {
-       await coord.disconnect(providerId);
-     } else {
-       await coord.connect(providerId);
+     try {
+       if (currentStatus) {
+         await coord.disconnect(providerId);
+       } else {
+         await coord.connect(providerId);
+       }
+       await _refresh();
+     } catch (e) {
+       if (mounted) {
+         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+       }
      }
-     await _refresh();
   }
 
   @override

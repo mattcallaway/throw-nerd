@@ -18,6 +18,10 @@ class Locations extends Table {
   TextColumn get id => text()();
   TextColumn get name => text().withLength(min: 1, max: 100)();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  // New columns 
+  TextColumn get leagueId => text().nullable().references(Leagues, #id)(); // Null for global/local-personal
+  TextColumn get address => text().nullable()();
+  TextColumn get notes => text().nullable()();
   
   @override
   Set<Column> get primaryKey => {id};
@@ -37,6 +41,13 @@ class Matches extends Table {
   TextColumn get source => text().withDefault(const Constant('local'))(); // 'local', 'league_firebase', 'league_gdrive', 'league_dropbox'
   TextColumn get leagueId => text().nullable().references(Leagues, #id)();
   TextColumn get remoteId => text().nullable()(); // ID/Path in provider
+  
+  // New Fields for Formal Leagues
+  TextColumn get seasonId => text().nullable().references(Seasons, #id)();
+  TextColumn get scheduleMatchId => text().nullable()();
+  TextColumn get stage => text().nullable()(); // regular, quarterfinal, semifinal, final
+  TextColumn get uploadedBy => text().nullable()();
+  TextColumn get complianceStatus => text().nullable()(); // 'valid', 'invalid', 'ignored'
 
   @override
   Set<Column> get primaryKey => {id};
@@ -51,8 +62,60 @@ class Leagues extends Table {
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get lastSyncAt => dateTime().nullable()();
   
+  // New Fields
+  TextColumn get ownerId => text().nullable()();
+  TextColumn get mode => text().withDefault(const Constant('informal'))();
+  TextColumn get activeSeasonId => text().nullable()();
+  TextColumn get rulesJson => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
+}
+
+class Seasons extends Table {
+  TextColumn get id => text()(); // seasonId
+  TextColumn get leagueId => text().references(Leagues, #id)();
+  TextColumn get name => text()();
+  DateTimeColumn get startDate => dateTime()();
+  DateTimeColumn get endDate => dateTime().nullable()(); // If null, active
+  BoolColumn get archived => boolean().withDefault(const Constant(false))();
+  
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class ScheduleGameDays extends Table {
+  TextColumn get id => text()(); // gameDayId
+  TextColumn get seasonId => text().references(Seasons, #id)();
+  IntColumn get dayIndex => integer()(); // 1, 2, 3...
+  DateTimeColumn get date => dateTime()();
+  TextColumn get locationId => text().nullable()();
+  TextColumn get notes => text().nullable()();
+  
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class ScheduleMatches extends Table {
+  TextColumn get id => text()(); // scheduleMatchId
+  TextColumn get gameDayId => text().references(ScheduleGameDays, #id)();
+  TextColumn get homePlayerId => text()();
+  TextColumn get awayPlayerId => text()();
+  TextColumn get stage => text()(); // 'regular'
+  IntColumn get matchOrder => integer()();
+  TextColumn get linkedMatchId => text().nullable()(); // If played, link to Matches.id
+  
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class MatchAnnotations extends Table {
+  TextColumn get matchId => text().references(Matches, #id)();
+  TextColumn get locationId => text().nullable()();
+  TextColumn get notes => text().nullable()();
+  
+  @override
+  Set<Column> get primaryKey => {matchId};
 }
 
 class MatchPlayers extends Table {
@@ -79,8 +142,6 @@ class Turns extends Table {
   IntColumn get score => integer().nullable()();
   IntColumn get dartsThrown => integer().nullable()();
   IntColumn get startingScore => integer().nullable()();
-  
-  // Snapshot stats for easy history? Maybe not needed for V1.
   
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 }

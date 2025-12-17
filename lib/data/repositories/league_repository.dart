@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/league/models.dart' as domain;
 import '../../domain/league/league_sync_provider.dart';
@@ -10,7 +11,8 @@ import '../../services/auth/auth_service_firebase.dart'; // for authUserProvider
 // Providers for the implementations
 import '../../features/leagues/providers/firebase_league_provider.dart';
 import '../../features/leagues/providers/gdrive_league_provider.dart';
-// import '../../features/leagues/providers/dropbox_league_provider.dart';
+import '../../domain/league/league_file_models.dart';
+import '../../features/leagues/providers/dropbox_league_provider.dart';
 
 class LeagueRepository {
   final AppDatabase _db;
@@ -21,7 +23,7 @@ class LeagueRepository {
   LeagueRepository(this._db, this._auth, this.userId, this._providers);
 
   // --- Local + Remote ---
-  Future<String> createLeague(String name, String providerId) async {
+  Future<String> createLeague(String name, String providerId, {String mode = 'informal'}) async {
     final provider = _providers[providerId];
     if (provider == null) throw Exception('Provider $providerId not supported');
     
@@ -42,6 +44,8 @@ class LeagueRepository {
        inviteCode: Value(ref.inviteCode),
        createdAt: Value(DateTime.now()),
        lastSyncAt: Value(null),
+       ownerId: Value(userId),
+       mode: Value(mode),
     ));
     
     return localId;
@@ -77,13 +81,23 @@ class LeagueRepository {
     // Read from LOCAL database
     return (_db.select(_db.leagues)..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
       .watch()
-      .map((rows) => rows.map((r) => domain.League(
-         id: r.id,
-         name: r.name,
-         createdBy: 'unknown', // Not stored locally in this concise table, assume we are member
-         createdAt: r.createdAt,
-         // We might need to extend League model or just use it as UI Data
-      )).toList());
+      .map((rows) => rows.map((r) {
+         domain.LeagueRules? rules;
+         if (r.rulesJson != null) {
+            try {
+              rules = domain.LeagueRules.fromJson(jsonDecode(r.rulesJson!));
+            } catch (_) {}
+         }
+         return domain.League(
+           id: r.id,
+           name: r.name,
+           createdBy: 'unknown',
+           createdAt: r.createdAt,
+           mode: r.mode,
+           activeSeasonId: r.activeSeasonId,
+           rules: rules,
+         );
+      }).toList());
   }
   
   // Get provider for a specific league
@@ -102,34 +116,103 @@ class LeagueRepository {
         lastSyncAt: Value(DateTime.now()),
      ));
   }
+
+  // --- Metadata Updates ---
+
+  Future<void> updateLeagueDetails(String leagueId, {String? name, String? ownerId, String? mode, String? activeSeasonId, String? rulesJson}) async {
+    await (_db.update(_db.leagues)..where((t) => t.id.equals(leagueId))).write(LeaguesCompanion(
+      name: name != null ? Value(name) : const Value.absent(),
+      ownerId: ownerId != null ? Value(ownerId) : const Value.absent(),
+      mode: mode != null ? Value(mode) : const Value.absent(),
+      activeSeasonId: activeSeasonId != null ? Value(activeSeasonId) : const Value.absent(),
+      rulesJson: rulesJson != null ? Value(rulesJson) : const Value.absent(),
+    ));
+  }
+
+  Future<void> upsertSeasons(String leagueId, List<SeasonFile> seasons) async {
+    await _db.batch((batch) {
+      for (var s in seasons) {
+        batch.insert(_db.seasons, SeasonsCompanion(
+           id: Value(s.seasonId),
+           leagueId: Value(leagueId),
+           name: Value(s.name),
+           startDate: Value(s.startDate),
+           endDate: Value(s.endDate),
+           archived: Value(s.archived),
+        ), mode: InsertMode.insertOrReplace);
+      }
+    });
+  }
+
+  Future<void> upsertLocations(String leagueId, List<LocationItem> locations) async {
+    await _db.batch((batch) {
+       for (var l in locations) {
+         batch.insert(_db.locations, LocationsCompanion(
+            id: Value(l.locationId),
+            name: Value(l.name),
+            leagueId: Value(leagueId),
+            address: Value(l.address),
+            notes: Value(l.notes),
+            createdAt: Value(DateTime.now()), // Or preserve?
+         ), mode: InsertMode.insertOrReplace);
+       }
+    });
+  }
+
+  Future<void> upsertSchedule(String leagueId, ScheduleFile schedule) async {
+     await _db.transaction(() async {
+        // Delete old
+        final days = await (_db.select(_db.scheduleGameDays)..where((t) => t.seasonId.equals(schedule.seasonId))).get();
+        for (var day in days) {
+           await (_db.delete(_db.scheduleMatches)..where((t) => t.gameDayId.equals(day.id))).go();
+        }
+        await (_db.delete(_db.scheduleGameDays)..where((t) => t.seasonId.equals(schedule.seasonId))).go();
+        
+        // Insert new
+        for (var d in schedule.gameDays) {
+           // Insert Day
+           await _db.into(_db.scheduleGameDays).insert(ScheduleGameDaysCompanion(
+              id: Value(d.gameDayId),
+              seasonId: Value(schedule.seasonId),
+              dayIndex: Value(d.index),
+              date: Value(d.date),
+              locationId: Value(d.locationId),
+              notes: Value(d.notes),
+           ));
+           
+           // Insert Matches for Day
+           for (var m in d.scheduledMatches) {
+              await _db.into(_db.scheduleMatches).insert(ScheduleMatchesCompanion(
+                 id: Value(m.scheduleMatchId),
+                 gameDayId: Value(d.gameDayId),
+                 homePlayerId: Value(m.homePlayerId),
+                 awayPlayerId: Value(m.awayPlayerId),
+                 stage: Value(m.stage),
+                 matchOrder: Value(m.order),
+                 linkedMatchId: Value(m.linkedMatchId),
+              ));
+           }
+        }
+     });
+  }
+  Future<void> deleteLocalLeague(String leagueId) async {
+     await (_db.delete(_db.leagues)..where((t) => t.id.equals(leagueId))).go();
+  }
 }
 
 final leagueRepositoryProvider = Provider<LeagueRepository>((ref) {
   final db = ref.watch(appDatabaseProvider);
   final auth = ref.watch(authCoordinatorProvider);
-  // Temporary: Use Firebase ID as the stable user identity for now
-  // In a multi-provider world, we might want a unified identity service.
-  final user = auth.getProvider('firebase') as FirebaseAuthProvider?;
-  // We can't synchronously get ID from Future method in Interface.
-  // We'll rely on the repository to fetch ID when needed?
-  // Or pass a "User ID Source".
-  // For now, hardcode 'anonymous' or fetch async inside repo?
-  // Repo expects String userId in constructor.
-  // Let's use 'anonymous' for now if we can't easily get it, or use a FutureProvider.
-  // BUT: createLeague etc need it.
-  // Better: Pass `auth` to Repo and let Repo fetch ID from `auth.getUserId()`.
-  
-  // Refactor: Pass 'anonymous' and let repo resolve dynamic ID if needed?
-  // Or: Just use a fixed ID since we are mostly testing offline/local first.
-  final uid = 'user_1'; // Placeholder until Auth State Provider is solid.
+  final uid = 'user_1'; 
   
   final firebase = FirebaseLeagueProvider();
-  final gdrive = GoogleDriveLeagueProvider(auth.getProvider('gdrive') as dynamic); // Cast? Or make auth provider typed.
+  final gdrive = GoogleDriveLeagueProvider(auth.getProvider('gdrive') as dynamic);
+  final dropbox = DropboxLeagueProvider('mock_token'); // Mock auth for now
   
   final providers = {
     'firebase': firebase,
     'gdrive': gdrive,
-    // 'dropbox': dropbox
+     'dropbox': dropbox, 
   };
   
   return LeagueRepository(db, auth, uid, providers);

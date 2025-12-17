@@ -7,6 +7,7 @@ import 'package:darts_app/presentation/providers/di_providers.dart';
 import 'package:darts_app/presentation/theme/app_themes.dart';
 import 'package:darts_app/presentation/widgets/glass_card.dart';
 import 'match_detail_screen.dart';
+import '../../data/repositories/league_repository.dart';
 
 // Filter State Provider
 final matchHistoryFilterProvider = StateProvider<MatchHistoryFilter>((ref) => MatchHistoryFilter());
@@ -14,13 +15,17 @@ final matchHistoryFilterProvider = StateProvider<MatchHistoryFilter>((ref) => Ma
 class MatchHistoryFilter {
   final GameType? gameType;
   final String? locationId;
+  final String? leagueId;
+  final bool onlyLocal;
   
-  MatchHistoryFilter({this.gameType, this.locationId});
+  MatchHistoryFilter({this.gameType, this.locationId, this.leagueId, this.onlyLocal = false});
   
-  MatchHistoryFilter copyWith({GameType? gameType, String? locationId}) {
+  MatchHistoryFilter copyWith({GameType? gameType, String? locationId, String? leagueId, bool? onlyLocal}) {
     return MatchHistoryFilter(
       gameType: gameType ?? this.gameType,
       locationId: locationId ?? this.locationId,
+      leagueId: leagueId ?? this.leagueId,
+      onlyLocal: onlyLocal ?? this.onlyLocal,
     );
   }
 }
@@ -29,7 +34,13 @@ class MatchHistoryFilter {
 final filteredMatchHistoryProvider = StreamProvider<List<GameMatch>>((ref) {
   final repo = ref.watch(matchRepositoryProvider);
   final filter = ref.watch(matchHistoryFilterProvider);
-  return repo.watchMatches(type: filter.gameType, locationId: filter.locationId);
+  
+  return repo.watchMatches(
+     type: filter.gameType, 
+     locationId: filter.locationId,
+     leagueId: filter.leagueId,
+     source: filter.onlyLocal ? 'local' : null,
+  );
 });
 
 class MatchHistoryScreen extends ConsumerWidget {
@@ -88,32 +99,45 @@ class MatchHistoryScreen extends ConsumerWidget {
   }
   
   Widget _buildActiveFilters(WidgetRef ref, MatchHistoryFilter filter) {
-    if (filter.gameType == null && filter.locationId == null) return const SizedBox.shrink();
+    if (filter.gameType == null && filter.locationId == null && filter.leagueId == null && !filter.onlyLocal) return const SizedBox.shrink();
     
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: [
-           if (filter.gameType != null)
-             Padding(
-               padding: const EdgeInsets.only(right: 8),
-               child: InputChip(
-                 label: Text(filter.gameType == GameType.x01 ? 'X01' : 'Cricket'),
-                 onDeleted: () => ref.read(matchHistoryFilterProvider.notifier).state = 
-                   ref.read(matchHistoryFilterProvider.notifier).state = MatchHistoryFilter(gameType: null, locationId: filter.locationId), // clear type
-               ),
+           if (filter.gameType != null) ...[
+             InputChip(
+               label: Text(filter.gameType == GameType.x01 ? 'X01' : 'Cricket'),
+               onDeleted: () => ref.read(matchHistoryFilterProvider.notifier).state = filter.copyWith(gameType: null),
              ),
-           if (filter.locationId != null)
-              // We need location name, but for now just show "Location" or fetch name?
-              // Let's just show "Location" label
-             Padding(
-               padding: const EdgeInsets.only(right: 8),
-               child: InputChip(
-                 label: const Text('Location'),
-                 onDeleted: () => ref.read(matchHistoryFilterProvider.notifier).state = MatchHistoryFilter(gameType: filter.gameType, locationId: null),
-               ),
-             ),
+             const SizedBox(width: 8),
+           ],
+           
+           if (filter.locationId != null) ...[
+              InputChip(
+                label: const Text('Location'),
+                onDeleted: () => ref.read(matchHistoryFilterProvider.notifier).state = filter.copyWith(locationId: null),
+              ),
+              const SizedBox(width: 8),
+           ],
+           
+           if (filter.onlyLocal) ...[
+              InputChip(
+                label: const Text('Local Only'),
+                onDeleted: () => ref.read(matchHistoryFilterProvider.notifier).state = filter.copyWith(onlyLocal: false),
+              ),
+              const SizedBox(width: 8),
+           ],
+           
+           if (filter.leagueId != null) ...[
+              InputChip(
+                label: const Text('League'),
+                onDeleted: () => ref.read(matchHistoryFilterProvider.notifier).state = filter.copyWith(leagueId: null),
+              ),
+              const SizedBox(width: 8),
+           ],
+
            TextButton(
              onPressed: () => ref.read(matchHistoryFilterProvider.notifier).state = MatchHistoryFilter(),
              child: const Text('Clear All'),
@@ -140,10 +164,8 @@ class _FilterSheet extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = ref.watch(appThemeProvider);
     final filter = ref.watch(matchHistoryFilterProvider);
-    final locationsAsync = ref.watch(allLocationsProvider); // Assuming we have this? Yes, created in Phase 3.
-    
-    // If allLocationsProvider isn't global, we fetch repo.
     final locRepo = ref.watch(locationRepositoryProvider);
+    final leaguesStream = ref.watch(leagueRepositoryProvider).watchMyLeagues();
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -157,6 +179,8 @@ class _FilterSheet extends ConsumerWidget {
         children: [
            Text('FILTER MATCHES', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.5, color: theme.accentColor)),
            const SizedBox(height: 24),
+           
+           // Game Type
            const Text('Game Type', style: TextStyle(color: Colors.grey)),
            const SizedBox(height: 12),
            Row(
@@ -164,26 +188,58 @@ class _FilterSheet extends ConsumerWidget {
                _FilterChip(
                  label: 'All', 
                  selected: filter.gameType == null,
-                 onTap: () => ref.read(matchHistoryFilterProvider.notifier).state = filter.copyWith(gameType: null), // Reset? 
-                 // Null hack: copyWith(gameType: null) won't work if nullable logic not perfect. 
-                 // Let's use direct constructor for purity.
-                 // Actually logic below:
+                 onTap: () => _update(ref, filter.copyWith(gameType: null)),
                ),
                const SizedBox(width: 8),
                _FilterChip(
                  label: 'X01', 
                  selected: filter.gameType == GameType.x01,
-                 onTap: () => _updateType(ref, GameType.x01),
+                 onTap: () => _update(ref, filter.copyWith(gameType: GameType.x01)), 
                ),
                const SizedBox(width: 8),
                _FilterChip(
                  label: 'Cricket', 
                  selected: filter.gameType == GameType.cricket,
-                 onTap: () => _updateType(ref, GameType.cricket),
+                 onTap: () => _update(ref, filter.copyWith(gameType: GameType.cricket)),
                ),
              ],
            ),
            const SizedBox(height: 24),
+           
+           // Source / League
+           const Text('Source', style: TextStyle(color: Colors.grey)),
+           const SizedBox(height: 12),
+           StreamBuilder(
+             stream: leaguesStream,
+             builder: (ctx, snapshot) {
+                 final leagues = snapshot.data ?? [];
+                 return Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                        _FilterChip(
+                           label: 'All Matches',
+                           selected: filter.leagueId == null && !filter.onlyLocal,
+                           onTap: () => _update(ref, filter.copyWith(leagueId: null, onlyLocal: false)),
+                        ),
+                        _FilterChip(
+                           label: 'Local Only',
+                           selected: filter.onlyLocal,
+                           onTap: () => _update(ref, filter.copyWith(leagueId: null, onlyLocal: true)),
+                        ),
+                        ...leagues.map((l) => _FilterChip(
+                           label: l.name,
+                           selected: filter.leagueId == l.id,
+                           onTap: () => _update(ref, filter.copyWith(leagueId: l.id, onlyLocal: false)),
+                        ))
+                    ],
+                 );
+             }
+           ),
+           
+           const SizedBox(height: 24),
+
+           // Location
            const Text('Location', style: TextStyle(color: Colors.grey)),
            const SizedBox(height: 12),
            FutureBuilder(
@@ -197,12 +253,12 @@ class _FilterSheet extends ConsumerWidget {
                    _FilterChip(
                       label: 'Any',
                       selected: filter.locationId == null,
-                      onTap: () => ref.read(matchHistoryFilterProvider.notifier).state = MatchHistoryFilter(gameType: filter.gameType, locationId: null),
+                      onTap: () => _update(ref, filter.copyWith(locationId: null)), 
                    ),
                    ...locs.map((l) => _FilterChip(
                       label: l.name,
                       selected: l.id == filter.locationId,
-                      onTap: () => ref.read(matchHistoryFilterProvider.notifier).state = filter.copyWith(locationId: l.id),
+                      onTap: () => _update(ref, filter.copyWith(locationId: l.id)),
                    ))
                  ],
                );
@@ -214,8 +270,8 @@ class _FilterSheet extends ConsumerWidget {
     );
   }
   
-  void _updateType(WidgetRef ref, GameType type) {
-    ref.read(matchHistoryFilterProvider.notifier).state = ref.read(matchHistoryFilterProvider.notifier).state.copyWith(gameType: type);
+  void _update(WidgetRef ref, MatchHistoryFilter newFilter) {
+    ref.read(matchHistoryFilterProvider.notifier).state = newFilter;
   }
 }
 

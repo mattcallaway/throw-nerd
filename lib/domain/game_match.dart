@@ -13,7 +13,9 @@ class GameMatch {
   // Maybe locationId
   final String? locationId;
   final String? leagueId;
+  final String? source;
   final String? settingsJson;
+  final String? complianceStatus;
 
   const GameMatch({
     required this.id,
@@ -25,6 +27,8 @@ class GameMatch {
     this.isCanceled = false,
     this.locationId,
     this.leagueId,
+    this.source,
     this.settingsJson,
+    this.complianceStatus,
   });
 }

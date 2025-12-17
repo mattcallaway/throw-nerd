@@ -11,6 +11,8 @@ import '../../data/repositories/drift_location_repository.dart';
 import '../../domain/location.dart';
 import '../../domain/player.dart';
 import '../theme/app_themes.dart';
+import '../../services/league/league_metadata_service.dart';
+import '../../data/repositories/league_repository.dart';
 
 final appDatabaseProvider = Provider<AppDatabase>((ref) {
   return AppDatabase();
@@ -71,4 +73,8 @@ final allPlayersProvider = StreamProvider<List<Player>>((ref) {
 
 final allLocationsProvider = FutureProvider<List<Location>>((ref) {
   return ref.watch(locationRepositoryProvider).getAllLocations();
+});
+
+final leagueMetadataServiceProvider = Provider<LeagueMetadataService>((ref) {
+  return LeagueMetadataService(ref.watch(leagueRepositoryProvider));
 });
